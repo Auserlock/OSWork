@@ -169,7 +169,7 @@ TSSLen	equ	$ - LABEL_TSS0
 ; End of [SECTION .tss0]
 
 ; TSS0
-[SECTION .tss0]
+[SECTION .tss1]
 ALIGN	32
 [BITS	32]
 LABEL_TSS1:
