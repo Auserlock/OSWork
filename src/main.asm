@@ -15,9 +15,9 @@ LABEL_GDT:             	Descriptor 	0,                 0, 	0		   				; 空描述
 LABEL_DESC_NORMAL:     	Descriptor 	0,            0ffffh, 	DA_DRW		   			; Normal描述符: 存在的可读写数据段属性值
 LABEL_DESC_DATA:       	Descriptor 	0,	     DataLen - 1, 	DA_DRW			
 ; 代码段描述符	
-LABEL_DESC_CODE32:     	Descriptor 	0,  SegCode32Len - 1, 	DA_C+DA_32	   			; 32位代码段描述符: 存在的只执行代码段属性值, 使用32位地址
-LABEL_DESC_VIDEO:      	Descriptor 	0B8000h,      0ffffh, 	DA_DRW+DA_DPL3			; 显存首地址
-LABEL_DESC_FLAT_RW: 	Descriptor 	0,        	 0fffffh, 	DA_DRW|DA_LIMIT_4K     	; 0~4G 可读写代码段
+LABEL_DESC_CODE32:     	Descriptor 	0,  SegCode32Len - 1, 	DA_C + DA_32	   		; 32位代码段描述符: 存在的只执行代码段属性值, 使用32位地址
+LABEL_DESC_VIDEO:      	Descriptor 	0B8000h,      0ffffh, 	DA_DRW + DA_DPL3		; 显存首地址
+LABEL_DESC_FLAT_RW: 	Descriptor 	0,        	 0fffffh, 	DA_DRW | DA_LIMIT_4K    ; 0~4G 可读写代码段
 ; TSS描述符	
 LABEL_DESC_TSS0:       	Descriptor 	0,		  TSSLen - 1,   DA_386TSS				;TSS0描述符
 LABEL_DESC_TSS1:	   	Descriptor 	0,		  TSSLen - 1,   DA_386TSS				;TSS1描述符
