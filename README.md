@@ -1,15 +1,15 @@
 # OSWork
-
 .
-├── Bochs               Bochs虚拟机
-│   ├── a.img               挂载镜像，挂载在/mnt/img
-│   ├── bochsrc.txt         bochs配置文件
-│   └── mount.sh            挂载loader.bin文件脚本
-├── boot.asm            FAT16文件系统，启动引导盘
+├── Bochs
+│   ├── a.img           软盘镜像，挂载在/mnt/img
+│   ├── bochsrc.txt
+│   └── mount.sh        挂载脚本
+├── boot.asm            FAT16引导启动盘
 ├── boot.bin
 ├── README.md
-└── src                 源代码目录
-    ├── OSLib.inc           显示函数定义
-    ├── OSWork.inc          常量，宏定义
-    └── Task.asm            项目源文件
+└── src
+    ├── loader.bin
+    ├── main.asm        源代码
+    ├── OSLib.inc       函数定义库
+    └── OSWork.inc      宏定义库
 
