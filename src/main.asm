@@ -473,38 +473,38 @@ DispMemSize:
 	push	ecx
 
 	mov	esi, MemChkBuf
-	mov	ecx, [dwMCRNumber]	;for(int i=0;i<[MCRNumber];i++) // 每次得到一个ARDS(Address Range Descriptor Structure)结构
-.loop:					;{
-	mov	edx, 5			;	for(int j=0;j<5;j++)	// 每次得到一个ARDS中的成员，共5个成员
-	mov	edi, ARDStruct		;	{			// 依次显示：BaseAddrLow，BaseAddrHigh，LengthLow，LengthHigh，Type
-.1:					;
-	push	dword [esi]		;
-	call	DispInt			;		DispInt(MemChkBuf[j*4]); // 显示一个成员
-	pop	eax			;
-	stosd				;		ARDStruct[j*4] = MemChkBuf[j*4];
-	add	esi, 4			;
-	dec	edx			;
-	cmp	edx, 0			;
-	jnz	.1			;	}
-	call	DispReturn		;	printf("\n");
-	cmp	dword [dwType], 1	;	if(Type == AddressRangeMemory) // AddressRangeMemory : 1, AddressRangeReserved : 2
-	jne	.2			;	{
+	mov	ecx, [dwMCRNumber]		;for(int i=0;i<[MCRNumber];i++) // 每次得到一个ARDS(Address Range Descriptor Structure)结构
+.loop:							;{
+	mov	edx, 5					;	for(int j=0;j<5;j++)	// 每次得到一个ARDS中的成员，共5个成员
+	mov	edi, ARDStruct			;	{			// 依次显示：BaseAddrLow，BaseAddrHigh，LengthLow，LengthHigh，Type
+.1:								;
+	push	dword [esi]			;
+	call	DispInt				;		DispInt(MemChkBuf[j*4]); // 显示一个成员
+	pop	eax						;
+	stosd						;		ARDStruct[j*4] = MemChkBuf[j*4];
+	add	esi, 4					;
+	dec	edx						;
+	cmp	edx, 0					;	
+	jnz	.1						;	}
+	call	DispReturn			;	printf("\n");
+	cmp	dword [dwType], 1		;	if(Type == AddressRangeMemory) // AddressRangeMemory : 1, AddressRangeReserved : 2
+	jne	.2						;	{
 	mov	eax, [dwBaseAddrLow]	;
-	add	eax, [dwLengthLow]	;
-	cmp	eax, [dwMemSize]	;		if(BaseAddrLow + LengthLow > MemSize)
-	jb	.2			;
-	mov	[dwMemSize], eax	;			MemSize = BaseAddrLow + LengthLow;
-.2:					;	}
-	loop	.loop			;}
-					;
-	call	DispReturn		;printf("\n");
-	push	szRAMSize		;
-	call	DispStr			;printf("RAM size:");
-	add	esp, 4			;
-					;
+	add	eax, [dwLengthLow]		;
+	cmp	eax, [dwMemSize]		;		if(BaseAddrLow + LengthLow > MemSize)
+	jb	.2						;
+	mov	[dwMemSize], eax		;			MemSize = BaseAddrLow + LengthLow;
+.2:								;	}
+	loop	.loop				;}
+								;
+	call	DispReturn			;printf("\n");
+	push	szRAMSize			;
+	call	DispStr				;printf("RAM size:");
+	add	esp, 4					;
+								;
 	push	dword [dwMemSize]	;
-	call	DispInt			;DispInt(MemSize);
-	add	esp, 4			;
+	call	DispInt				;DispInt(MemSize);
+	add	esp, 4			
 
 	pop	ecx
 	pop	edi
@@ -512,69 +512,69 @@ DispMemSize:
 	ret
 ; END of DispMemsize
 
-; 启动分页机制 --------------------------------------------------------------
+; 启动分页机制
 SetupPaging:
 	; 根据内存大小计算应初始化多少PDE以及多少页表
 	xor	edx, edx
 	mov	eax, [dwMemSize]
-	mov	ebx, 400000h	; 400000h = 4M = 4096 * 1024, 一个页表对应的内存大小
+	mov	ebx, 400000h				; 400000h = 4M = 4096 * 1024, 一个页表对应的内存大小
 	div	ebx
-	mov	ecx, eax	; 此时 ecx 为页表的个数，也即 PDE 应该的个数
+	mov	ecx, eax					; 此时 ecx 为页表的个数，也即 PDE 应该的个数
 	test	edx, edx
 	jz	.no_remainder
-	inc	ecx		; 如果余数不为 0 就需增加一个页表
+	inc	ecx							; 如果余数不为 0 就需增加一个页表
 .no_remainder:
-	mov	[PageTableNumber], ecx	; 暂存页表个数
+	mov	[PageTableNumber], ecx		; 暂存页表个数
 
 	; 为简化处理, 所有线性地址对应相等的物理地址. 并且不考虑内存空洞.
 
 	; 首先初始化页目录0
 	mov	ax, SelectorFlatRW
 	mov	es, ax
-	mov	edi, PageDirBase0	; 此段首地址为 PageDirBase0
+	mov	edi, PageDirBase0			; 此段首地址为 PageDirBase0
 	xor	eax, eax
 	mov	eax, PageTblBase0 | PG_P  | PG_USU | PG_RWW
 .1:
 	stosd
-	add	eax, 4096		; 为了简化, 所有页表在内存中是连续的.
+	add	eax, 4096					; 为了简化, 所有页表在内存中是连续的.
 	loop	.1
 
 	; 初始化所有页表
-	mov	eax, [PageTableNumber]	; 页表个数
-	mov	ebx, 1024		; 每个页表 1024 个 PTE
+	mov	eax, [PageTableNumber]		; 页表个数
+	mov	ebx, 1024					; 每个页表 1024 个 PTE
 	mul	ebx
-	mov	ecx, eax		; PTE个数 = 页表个数 * 1024
-	mov	edi, PageTblBase0	; 此段首地址为 PageTblBase0
+	mov	ecx, eax					; PTE个数 = 页表个数 * 1024
+	mov	edi, PageTblBase0			; 此段首地址为 PageTblBase0
 	xor	eax, eax
 	mov	eax, PG_P  | PG_USU | PG_RWW
 .2:
 	stosd
-	add	eax, 4096		; 每一页指向 4K 的空间
+	add	eax, 4096					; 每一页指向 4K 的空间
 	loop	.2
 	
 	; 首先初始化页目录1
 	mov	ax, SelectorFlatRW
 	mov	es, ax
-	mov	edi, PageDirBase1	; 此段首地址为 PageDirBase1
+	mov	edi, PageDirBase1			; 此段首地址为 PageDirBase1
 	xor	eax, eax
 	mov	eax, PageTblBase1 | PG_P  | PG_USU | PG_RWW
 	mov	ecx, [PageTableNumber]
 .3:
 	stosd
-	add	eax, 4096		; 为了简化, 所有页表在内存中是连续的.
+	add	eax, 4096					; 为了简化, 所有页表在内存中是连续的.
 	loop	.3
 
 	; 再初始化所有页表
-	mov	eax, [PageTableNumber]	; 页表个数
-	mov	ebx, 1024		; 每个页表 1024 个 PTE
+	mov	eax, [PageTableNumber]		; 页表个数
+	mov	ebx, 1024					; 每个页表 1024 个 PTE
 	mul	ebx
-	mov	ecx, eax		; PTE个数 = 页表个数 * 1024
-	mov	edi, PageTblBase1	; 此段首地址为 PageTblBase1
+	mov	ecx, eax					; PTE个数 = 页表个数 * 1024
+	mov	edi, PageTblBase1			; 此段首地址为 PageTblBase1
 	xor	eax, eax
 	mov	eax, PG_P  | PG_USU | PG_RWW
 .4:
 	stosd
-	add	eax, 4096		; 每一页指向 4K 的空间
+	add	eax, 4096					; 每一页指向 4K 的空间
 	loop	.4
 	
 	mov	eax, PageDirBase0
@@ -587,7 +587,7 @@ SetupPaging:
 	nop
 
 	ret
-; 分页机制启动完毕 ----------------------------------------------------------
+; 分页机制启动完毕
 %include "OSLib.inc"	; 常用函数定义
 
 SegCode32Len	equ	$ - LABEL_SEG_CODE32
