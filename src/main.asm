@@ -1,5 +1,4 @@
 %include "OSWork.inc"	; 常量, 宏, 及其他说明
-%include "OSLib.inc"	; 常用函数定义
 
 	org 0100h
 	jmp LABEL_BEGIN
@@ -11,44 +10,40 @@ PageTblBase1	equ	211000h
 
 ; GDT 描述符表定义
 [SECTION .gdt]
-LABEL_GDT:			Descriptor				0,			 		 0,			0				; 空描述符
-; 数据段描述符
-LABEL_DESC_NORMAL:	Descriptor				0,				0ffffh,			DA_DRW			; Normal描述符: 存在的可读写数据段属性值
-LABEL_DESC_DATA:	Descriptor				0,		   DataLen - 1,			DA_DRW
-LABEL_DESC_FLAT_C:	Descriptor             	0,             0fffffh, 		DA_CR | DA_32 | DA_LIMIT_4K	; 0-4G 
-; 代码段描述符
-LABEL_DESC_CODE16:	Descriptor				0,				0ffffh,			DA_C			; 非一致代码段: 16位
-LABEL_DESC_CODE32:	Descriptor				0,	  SegCode32Len - 1,			DA_C + DA_32	; 32位代码段描述符: 存在的只执行代码段属性值, 使用32位地址
-LABEL_DESC_VIDEO:	Descriptor		  0B8000h,			    0ffffh,			DA_DRW | DA_DPL3	; 显存首地址
-LABEL_DESC_FLAT_RW:	Descriptor				0,			   0fffffh,			DA_DRW | DA_LIMIT_4K	; 0-4G 可读写代码段
-; TSS 描述符
-LABEL_DESC_TSS0:	Descriptor				0,		   TSS0Len - 1,			DA_386TSS	; TSS0描述符
-LABEL_DESC_TSS1:	Descriptor				0,		   TSS1Len - 1,			DA_386TSS	; TSS1描述符
-; 堆栈描述符
-LABEL_DESC_STACK0:	Descriptor				0,		   TopOfStack0,			DA_DRWA | DA_32	; 全局32位Stack0
-LABEL_DESC_STACK1:	Descriptor				0,		   TopOfStack1,			DA_DRWA | DA_32	; 全局32位Stack1
-; LDT 描述符
-LABEL_DESC_LDT0:	Descriptor				0,		   LDT0Len - 1,			DA_LDT	; LDT0
-LABEL_DESC_LDT1:	Descriptor				0,		   LDT1Len - 1,			DA_LDT	; LDT1
-; GDT 定义结束
-GdtLen	equ	$ - LABEL_GDT	; GDT长度
-GdtPtr	dw	GdtLen - 1		; GDT界限
-		dd	0				; GDT基地址
+LABEL_GDT:             	Descriptor 	0,                 0, 	0		   				; 空描述符
+; 数据段描述符	
+LABEL_DESC_NORMAL:     	Descriptor 	0,            0ffffh, 	DA_DRW		   			; Normal描述符: 存在的可读写数据段属性值
+LABEL_DESC_DATA:       	Descriptor 	0,	     DataLen - 1, 	DA_DRW			
+; 代码段描述符	
+LABEL_DESC_CODE32:     	Descriptor 	0,  SegCode32Len - 1, 	DA_C+DA_32	   			; 32位代码段描述符: 存在的只执行代码段属性值, 使用32位地址
+LABEL_DESC_VIDEO:      	Descriptor 	0B8000h,      0ffffh, 	DA_DRW+DA_DPL3			; 显存首地址
+LABEL_DESC_FLAT_RW: 	Descriptor 	0,        	 0fffffh, 	DA_DRW|DA_LIMIT_4K     	; 0~4G 可读写代码段
+; TSS描述符	
+LABEL_DESC_TSS0:       	Descriptor 	0,		  TSSLen - 1,   DA_386TSS				;TSS0描述符
+LABEL_DESC_TSS1:	   	Descriptor 	0,		  TSSLen - 1,   DA_386TSS				;TSS1描述符
+; 堆栈描述符	
+LABEL_DESC_STACK0:     	Descriptor 	0,    	 TopOfStack0, 	DA_DRWA+DA_32			;全局32位Stack0
+LABEL_DESC_STACK1:     	Descriptor 	0,    	 TopOfStack1, 	DA_DRWA+DA_32			;全局32位Stack1
+; LDT描述符	
+LABEL_DESC_LDT0:	   	Descriptor 	0,		 LDT0Len - 1, 	DA_LDT					; LDT0
+LABEL_DESC_LDT1:	   	Descriptor 	0,		 LDT1Len - 1, 	DA_LDT					; LDT1
+
+GdtLen		equ	$ - LABEL_GDT	; GDT长度
+GdtPtr		dw	GdtLen - 1		; GDT界限
+			dd	0				; GDT基地址
 
 ; GDT 选择子
-SelectorNormal		equ		LABEL_DESC_NORMAL - LABEL_GDT
-SelectorData		equ		LABEL_DESC_DATA - LABEL_GDT
-SelectorFlatC		equ		LABEL_DESC_FLAT_C - LABEL_GDT
-SelectorCode16		equ		LABEL_DESC_CODE16 - LABEL_GDT
-SelectorCode32		equ		LABEL_DESC_CODE32 - LABEL_GDT
-SelectorVideo		equ		LABEL_DESC_VIDEO - LABEL_GDT
-SelectorFlatRW		equ		LABEL_DESC_FLAT_RW - LABEL_GDT
-SelectorTSS0		equ		LABEL_DESC_TSS0	- LABEL_GDT
-SelectorTSS1		equ		LABEL_DESC_TSS1 - LABEL_GDT
-SelectorStack0		equ		LABEL_DESC_STACK0 - LABEL_GDT
-SelectorStack1 		equ		LABEL_DESC_STACK1 - LABEL_GDT
-SelectorLDT0		equ		LABEL_DESC_LDT0 - LABEL_GDT
-SelectorLDT1 		equ		LABEL_DESC_LDT1 - LABEL_GDT
+SelectorNormal		equ		LABEL_DESC_NORMAL	- LABEL_GDT
+SelectorData		equ		LABEL_DESC_DATA		- LABEL_GDT
+SelectorCode32		equ		LABEL_DESC_CODE32	- LABEL_GDT
+SelectorVideo		equ		LABEL_DESC_VIDEO	- LABEL_GDT
+SelectorFlatRW		equ		LABEL_DESC_FLAT_RW	- LABEL_GDT
+SelectorStack0		equ		LABEL_DESC_STACK0	- LABEL_GDT
+SelectorStack1		equ		LABEL_DESC_STACK1	- LABEL_GDT
+SelectorTSS0		equ		LABEL_DESC_TSS0		- LABEL_GDT
+SelectorTSS1		equ		LABEL_DESC_TSS1		- LABEL_GDT
+SelectorLDT0		equ		LABEL_DESC_LDT0		- LABEL_GDT
+SelectorLDT1		equ		LABEL_DESC_LDT1		- LABEL_GDT
 ; END of [SECTION .gdt]
 
 ; 数据段
@@ -63,7 +58,7 @@ _szRAMSize		db	"RAM Size: ", 0
 _szReturn		db	0Ah, 0
 ; 变量
 _dwMCRNumber:	dd	0 ; 内存检查结果
-_dwDispPos: 	dd  (80 * 6 + 0) * 2	; 屏幕第6行，第0列
+_dwDispPos: 	dd  (80 * 2 + 0) * 2	; 屏幕第2行，第0列
 _dwMemSize:		dd 	0
 _ARDStruct:
 	_dwBaseAddrLow:		dd 	0
@@ -170,7 +165,7 @@ LABEL_TSS0:
         DW  0           
         DW  $ - LABEL_TSS0 + 2   
         DB  0ffh            
-TSS0Len		equ	$ - LABEL_TSS0
+TSSLen	equ	$ - LABEL_TSS0
 ; End of [SECTION .tss0]
 
 ; TSS0
@@ -206,7 +201,6 @@ LABEL_TSS1:
         DW  0           
         DW  $ - LABEL_TSS1 + 2   
         DB  0ffh            
-TSS1Len		equ	$ - LABEL_TSS1
 ; End of [SECTION .tss1]
 
 ; 16位代码段
@@ -321,7 +315,7 @@ LABEL_MEM_CHK_OK:
 	lgdt	[GdtPtr]
 
 	; 关中断
-	cli
+	; cli
 	
 	; 加载 IDTR
 	lidt	[IdtPtr]
@@ -366,14 +360,12 @@ LABEL_SEG_CODE32:
 	push	szPMMessage
 	call	DispStr
 	add	esp, 4
-	call	DispReturn
 
 	push	szMemChkTitle	;显示内存信息标题
 	call	DispStr
 	add	esp, 4
 
 	call	DispMemSize		; 显示内存信息
-	call	DispReturn		; 模拟回车
 
 	call	SetupPaging		; 启动页表
 
@@ -447,7 +439,7 @@ ClockHandler	equ	_ClockHandler - $$
 	je	short IFEQ					; 比较Task编号
 IFNE:
 	mov eax,0
-	mov dword [es:currentTask],eax
+	mov dword [es:currentTask], eax
 	mov	al, 20h
 	out	20h, al						; 发送 EOI
 	call io_delay
@@ -455,7 +447,7 @@ IFNE:
 	jmp short FINISH
 IFEQ:
 	mov eax,1
-	mov dword [es:currentTask],eax
+	mov dword [es:currentTask], eax
 	mov	al, 20h
 	out	20h, al						; 发送 EOI
 	call io_delay
@@ -470,10 +462,11 @@ UserIntHandler	equ	_UserIntHandler - $$
 
 _SpuriousHandler:					; 其他中断 
 SpuriousHandler	equ	_SpuriousHandler - $$
+	jmp $
 	iretd
 ; END of 中断处理程序
 
-; 显示内存信息 --------------------------------------------------------------
+; 显示内存信息
 DispMemSize:
 	push	esi
 	push	edi
@@ -517,7 +510,7 @@ DispMemSize:
 	pop	edi
 	pop	esi
 	ret
-; ---------------------------------------------------------------------------
+; END of DispMemsize
 
 ; 启动分页机制 --------------------------------------------------------------
 SetupPaging:
@@ -546,7 +539,7 @@ SetupPaging:
 	add	eax, 4096		; 为了简化, 所有页表在内存中是连续的.
 	loop	.1
 
-	; 再初始化所有页表
+	; 初始化所有页表
 	mov	eax, [PageTableNumber]	; 页表个数
 	mov	ebx, 1024		; 每个页表 1024 个 PTE
 	mul	ebx
@@ -595,6 +588,8 @@ SetupPaging:
 
 	ret
 ; 分页机制启动完毕 ----------------------------------------------------------
+%include "OSLib.inc"	; 常用函数定义
+
 SegCode32Len	equ	$ - LABEL_SEG_CODE32
 ; END of [SECTION .s32]
 
@@ -620,13 +615,13 @@ LABEL_USER_STACK0:
 TopOfUserStack0	equ	$ - LABEL_USER_STACK0 - 1
 ; END of [SECTION .ls0]
 
-; 用户代码段
+; TASK0
 [SECTION .task0]
 LABEL_TASK0:
 	mov	ax, SelectorVideo
 	mov	gs, ax			; 视频段选择子(目的)
 
-	mov	edi, (80 * 15 + 0) * 2	; 屏幕第 15 行, 第 0 列
+	mov	edi, (80 * 14 + 0) * 2	; 屏幕第 15 行, 第 0 列
 	mov	ah, 0Ch					; 0000: 黑底    1100: 红字
 	mov	al, 'H'
 	mov	[gs:edi], ax
@@ -646,7 +641,7 @@ LABEL_TASK0:
 	int 80h
 	jmp LABEL_TASK0
 LEN_TASK0 	equ 	$ - LABEL_TASK0
-; END of [SECTION .task0]
+; END of TASK0
 
 ; LDT 描述符表定义
 [SECTION .ldt1]
@@ -661,7 +656,7 @@ SelectorLDT1Code			equ	LABEL_LDT1_DESC_CODE	- LABEL_LDT1 + SA_TIL + SA_RPL3
 SelectorLDT1UserStack		equ	LABEL_LDT1_DESC_USER_STACK	- LABEL_LDT1 + SA_TIL + SA_RPL3
 ; END of [SECTION .ldt0]
 
-; 用户堆栈段0
+; 用户堆栈段1
 [SECTION .ls1]
 ALIGN	32
 [BITS	32]
@@ -670,14 +665,14 @@ LABEL_USER_STACK1:
 TopOfUserStack1	equ	$ - LABEL_USER_STACK1 - 1
 ; END of [SECTION .ls1]
 
-; 用户代码段
+; TASK1
 [SECTION .task1]
 LABEL_TASK1:
 	mov	ax, SelectorVideo
 	mov	gs, ax					; 视频段选择子
 
-	mov	edi, (80 * 15 + 0) * 2	; 屏幕第 15 行, 第 0 列
-	mov	ah, 0Ch					; 0000: 黑底    1100: 红字
+	mov	edi, (80 * 14 + 0) * 2	; 屏幕第 15 行, 第 0 列
+	mov	ah, 0Bh					; 0000: 黑底    1011: 蓝字
 	mov	al, 'V'
 	mov	[gs:edi], ax
 
@@ -696,4 +691,4 @@ LABEL_TASK1:
 	int 80h
 	jmp LABEL_TASK1
 LEN_TASK1 	equ $ - LABEL_TASK1
-; END of [SECTION .task1]
+; END of TASK1
