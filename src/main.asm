@@ -88,11 +88,17 @@ _SavedIDTR:				dd	0	; 用于保存IDTR
 _SavedIMREG:			dd 	0	; 中断屏蔽寄存器值
 _MemChkBuf:		times	256	db 	0
 _currentTask:			dd  0
-_priorityTask:			
-	_priorityTask0		dd	32
-	_priorityTask1		dd	14
-	_priorityTask2		dd	8
-	_priorityTask3		dd 	20
+_priorityTask:
+	_priorityTask0:		dd	32 * 4
+	_priorityTask1:		dd  14 * 4
+	_priorityTask2:		dd	8 * 4
+	_priorityTask3:		dd	20 * 4
+_nowTaskPriority:
+	_nowTask0Priority:	dd 	32
+	_nowTask1Priority:	dd	14
+	_nowTask2Priority:	dd	8
+	_nowTask3Priority:	dd	20
+_timeslice:				dd	32 * 4
 ; 保护模式下符号
 szPMMessage		equ	_szPMMessage	- $$
 szMemChkTitle		equ	_szMemChkTitle	- $$
@@ -117,6 +123,12 @@ priorityTask	equ	_priorityTask - $$
 	priorityTask1	equ	_priorityTask1 - $$
 	priorityTask2	equ	_priorityTask2 - $$
 	priorityTask3	equ	_priorityTask3 - $$
+nowTaskPriority	equ	_nowTaskPriority - $$
+	nowTask0Priority 	equ	_nowTask0Priority - $$
+	nowTask1Priority 	equ	_nowTask1Priority - $$
+	nowTask2Priority 	equ	_nowTask2Priority - $$
+	nowTask3Priority 	equ	_nowTask3Priority - $$
+timeslice		equ	_timeslice - $$
 DataLen			equ	$ - LABEL_DATA
 ; END of [SECTION .data]
 
@@ -586,42 +598,65 @@ _ClockHandler:						; int 20h 由8259A-IRQ0产生
 ClockHandler	equ	_ClockHandler - $$
 	mov	ax, SelectorData
 	mov	es, ax 
+
+	mov al, 20h
+	out 20h, al
+
+	mov ecx, [es:timeslice]
+
+	cmp ecx, 0
+	je 	short UPDATE
+	dec ecx
+	mov dword [es:timeslice], ecx 
+	jmp FINISH
+	
+UPDATE:
 	mov eax, [es:currentTask]
 	cmp eax, 0
 	je	short IFEQ0					; 比较Task编号
 	cmp eax, 1
-	je 	short IFEQ1
+	je  short IFEQ1
 	cmp eax, 2
-	je 	short IFEQ2
+	je  short IFEQ2
 IFNE:
-	mov eax, 0
-	mov dword [es:currentTask], eax
-	mov	al, 20h
-	out	20h, al						; 发送 EOI
-	call io_delay
-	jmp SelectorTSS0:0
-	jmp short FINISH
-IFEQ0:
 	mov eax, 1
 	mov dword [es:currentTask], eax
+	mov eax, [es:priorityTask1]
+	mov dword [es:timeslice], eax
 	mov	al, 20h
 	out	20h, al						; 发送 EOI
 	call io_delay
 	jmp SelectorTSS1:0
-IFEQ1:
-	mov eax, 2
-	mov dword [es:currentTask], eax
-	mov	al, 20h
-	out	20h, al						; 发送 EOI
-	call io_delay
-	jmp SelectorTSS2:0
-IFEQ2:
+	jmp short FINISH
+IFEQ0:
 	mov eax, 3
 	mov dword [es:currentTask], eax
+	mov eax, [es:priorityTask3]
+	mov dword [es:timeslice], eax
 	mov	al, 20h
 	out	20h, al						; 发送 EOI
 	call io_delay
 	jmp SelectorTSS3:0
+	jmp short FINISH
+IFEQ1:
+	mov eax, 2
+	mov dword [es:currentTask], eax
+	mov eax, [es:priorityTask2]
+	mov dword [es:timeslice], eax
+	mov	al, 20h
+	out	20h, al						; 发送 EOI
+	call io_delay
+	jmp SelectorTSS2:0
+	jmp short FINISH
+IFEQ2:
+	mov eax, 0
+	mov dword [es:currentTask], eax
+	mov eax, [es:priorityTask0]
+	mov dword [es:timeslice], eax
+	mov	al, 20h
+	out	20h, al						; 发送 EOI
+	call io_delay
+	jmp SelectorTSS0:0
 FINISH:
 	iretd
 ; End Of ClockInt
@@ -838,12 +873,12 @@ TopOfUserStack0	equ	$ - LABEL_USER_STACK0 - 1
 ; END of [SECTION .ls0]
 
 ; TASK0
-[SECTION .task0]
+[SECTION .task0]	; HUST
 LABEL_TASK0:
 	mov	ax, SelectorVideo
 	mov	gs, ax			; 视频段选择子(目的)
 
-	mov	edi, (80 * 14 + 0) * 2	; 屏幕第 15 行, 第 0 列
+	mov	edi, (80 * 14 + 0) * 2	; 屏幕第 14 行, 第 0 列
 	mov	ah, 0Ch					; 0000: 黑底    1100: 红字
 	mov	al, 'H'
 	mov	[gs:edi], ax
@@ -888,12 +923,12 @@ TopOfUserStack1	equ	$ - LABEL_USER_STACK1 - 1
 ; END of [SECTION .ls1]
 
 ; TASK1
-[SECTION .task1]
+[SECTION .task1]	; VERY
 LABEL_TASK1:
 	mov	ax, SelectorVideo
 	mov	gs, ax					; 视频段选择子
 
-	mov	edi, (80 * 14 + 0) * 2	; 屏幕第 15 行, 第 0 列
+	mov	edi, (80 * 14 + 0) * 2	; 屏幕第 14 行, 第 0 列
 	mov	ah, 0Bh					; 0000: 黑底    1011: 蓝字
 	mov	al, 'V'
 	mov	[gs:edi], ax
@@ -938,12 +973,12 @@ TopOfUserStack2	equ	$ - LABEL_USER_STACK2 - 1
 ; END of [SECTION .ls2]
 
 ; TASK2
-[SECTION .task2]
+[SECTION .task2]	; LOVE
 LABEL_TASK2:
 	mov	ax, SelectorVideo
 	mov	gs, ax					; 视频段选择子
 
-	mov	edi, (80 * 14 + 0) * 2	; 屏幕第 15 行, 第 0 列
+	mov	edi, (80 * 14 + 0) * 2	; 屏幕第 14 行, 第 0 列
 	mov	ah, 0Ch					; 0000: 黑底    1100: 红字
 	mov	al, 'L'
 	mov	[gs:edi], ax
@@ -988,12 +1023,12 @@ TopOfUserStack3	equ	$ - LABEL_USER_STACK3 - 1
 ; END of [SECTION .ls3]
 
 ; TASK3
-[SECTION .task3]
+[SECTION .task3]	; MRSU
 LABEL_TASK3:
 	mov	ax, SelectorVideo
 	mov	gs, ax					; 视频段选择子
 
-	mov	edi, (80 * 14 + 0) * 2	; 屏幕第 15 行, 第 0 列
+	mov	edi, (80 * 14 + 0) * 2	; 屏幕第 14 行, 第 0 列
 	mov	ah, 0Bh					; 0000: 黑底    1011: 蓝字
 	mov	al, 'M'
 	mov	[gs:edi], ax
