@@ -93,11 +93,9 @@ _priorityTask:
 	_priorityTask1:		dd  14 * 4
 	_priorityTask2:		dd	8 * 4
 	_priorityTask3:		dd	20 * 4
-_nowTaskPriority:
-	_nowTask0Priority:	dd 	32
-	_nowTask1Priority:	dd	14
-	_nowTask2Priority:	dd	8
-	_nowTask3Priority:	dd	20
+_priority 				dd 	32, 14, 8, 20
+_sortedTasks			dd  0, 0, 0, 0
+_count					dd	0
 _timeslice:				dd	32 * 4
 ; 保护模式下符号
 szPMMessage		equ	_szPMMessage	- $$
@@ -123,11 +121,9 @@ priorityTask	equ	_priorityTask - $$
 	priorityTask1	equ	_priorityTask1 - $$
 	priorityTask2	equ	_priorityTask2 - $$
 	priorityTask3	equ	_priorityTask3 - $$
-nowTaskPriority	equ	_nowTaskPriority - $$
-	nowTask0Priority 	equ	_nowTask0Priority - $$
-	nowTask1Priority 	equ	_nowTask1Priority - $$
-	nowTask2Priority 	equ	_nowTask2Priority - $$
-	nowTask3Priority 	equ	_nowTask3Priority - $$
+priority		equ	_priority - $$
+sortedTasks		equ	_sortedTasks - $$
+count			equ	_count - $$
 timeslice		equ	_timeslice - $$
 DataLen			equ	$ - LABEL_DATA
 ; END of [SECTION .data]
@@ -529,11 +525,13 @@ LABEL_SEG_CODE32:
 	call	DispStr
 	add	esp, 4
 
+	call 	SortPriorityTask
+
 	call	DispMemSize		; 显示内存信息
 
 	call	SetupPaging		; 启动页表
 
-	;进入task0
+	; 进入task0
 	push	SelectorLDT0UserStack
 	push	TopOfUserStack0
 	push	SelectorLDT0Code
@@ -542,6 +540,40 @@ LABEL_SEG_CODE32:
 	retf
 
 	jmp $
+
+; 优先级排序为循环队列
+SortPriorityTask:
+	mov	ax, SelectorData
+	mov	es, ax 	
+
+	mov eax, 0
+.search_for_greater:
+	mov ecx, 0				; 索引
+	mov ebx, 0				; 最大优先级任务编号
+	mov edx, 0			; 最大优先级
+.search_again:
+	cmp [es:priority + ecx * 4], edx
+	jg  .loop_for_greater
+	inc ecx
+	cmp ecx, 4
+	je .end_loop
+	jmp .search_again
+.loop_for_greater:
+	mov ebx, ecx
+	mov edx, [es:priority + ecx * 4]
+	inc ecx
+	cmp ecx, 4
+	je  .end_loop
+	jmp .search_again
+.end_loop:
+	mov dword [sortedTasks + eax * 4], ebx
+	mov dword [es:priority + ebx * 4], 0
+	inc eax
+	cmp eax, 4
+	jne .search_for_greater
+
+	ret
+; 获得优先级队列
 
 ; Init8259A 
 Init8259A:
@@ -605,32 +637,35 @@ ClockHandler	equ	_ClockHandler - $$
 	mov ecx, [es:timeslice]
 
 	cmp ecx, 0
-	je 	short UPDATE
+	je 	short Update				; 时间片用尽
 	dec ecx
 	mov dword [es:timeslice], ecx 
 	jmp FINISH
 	
-UPDATE:
-	mov eax, [es:currentTask]
+Update:
+	mov eax, [es:count]
+	inc eax
+	mov dword [es:count], eax
+	cmp eax, 4
+	je DealWithCircle
+Continue:
+	mov eax, dword [es:sortedTasks + eax * 4]
+	mov dword [es:currentTask], eax
+
 	cmp eax, 0
 	je	short IFEQ0					; 比较Task编号
 	cmp eax, 1
 	je  short IFEQ1
 	cmp eax, 2
 	je  short IFEQ2
+	jmp short IFNE
+
+DealWithCircle:						; 处理循环队列
+	mov dword [es:count], 0
+	mov eax, 0
+	jmp Continue
+
 IFNE:
-	mov eax, 1
-	mov dword [es:currentTask], eax
-	mov eax, [es:priorityTask1]
-	mov dword [es:timeslice], eax
-	mov	al, 20h
-	out	20h, al						; 发送 EOI
-	call io_delay
-	jmp SelectorTSS1:0
-	jmp short FINISH
-IFEQ0:
-	mov eax, 3
-	mov dword [es:currentTask], eax
 	mov eax, [es:priorityTask3]
 	mov dword [es:timeslice], eax
 	mov	al, 20h
@@ -638,25 +673,29 @@ IFEQ0:
 	call io_delay
 	jmp SelectorTSS3:0
 	jmp short FINISH
-IFEQ1:
-	mov eax, 2
-	mov dword [es:currentTask], eax
-	mov eax, [es:priorityTask2]
-	mov dword [es:timeslice], eax
-	mov	al, 20h
-	out	20h, al						; 发送 EOI
-	call io_delay
-	jmp SelectorTSS2:0
-	jmp short FINISH
-IFEQ2:
-	mov eax, 0
-	mov dword [es:currentTask], eax
+IFEQ0:
 	mov eax, [es:priorityTask0]
 	mov dword [es:timeslice], eax
 	mov	al, 20h
 	out	20h, al						; 发送 EOI
 	call io_delay
 	jmp SelectorTSS0:0
+	jmp short FINISH
+IFEQ1:
+	mov eax, [es:priorityTask1]
+	mov dword [es:timeslice], eax
+	mov	al, 20h
+	out	20h, al						; 发送 EOI
+	call io_delay
+	jmp SelectorTSS1:0
+	jmp short FINISH
+IFEQ2:
+	mov eax, [es:priorityTask2]
+	mov dword [es:timeslice], eax
+	mov	al, 20h
+	out	20h, al						; 发送 EOI
+	call io_delay
+	jmp SelectorTSS2:0
 FINISH:
 	iretd
 ; End Of ClockInt
@@ -929,7 +968,7 @@ LABEL_TASK1:
 	mov	gs, ax					; 视频段选择子
 
 	mov	edi, (80 * 14 + 0) * 2	; 屏幕第 14 行, 第 0 列
-	mov	ah, 0Bh					; 0000: 黑底    1011: 蓝字
+	mov	ah, 0Ch					; 0000: 黑底    1100: 红字
 	mov	al, 'V'
 	mov	[gs:edi], ax
 
@@ -979,7 +1018,7 @@ LABEL_TASK2:
 	mov	gs, ax					; 视频段选择子
 
 	mov	edi, (80 * 14 + 0) * 2	; 屏幕第 14 行, 第 0 列
-	mov	ah, 0Ch					; 0000: 黑底    1100: 红字
+	mov	ah, 0Bh					; 0000: 黑底    1011: 蓝字
 	mov	al, 'L'
 	mov	[gs:edi], ax
 
