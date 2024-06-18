@@ -7,6 +7,10 @@ PageDirBase0	equ	200000h	; 页目录起始地址
 PageTblBase0	equ	201000h	; 页表开始地址	2M + 4K
 PageDirBase1	equ	210000h	; 2M + 64K
 PageTblBase1	equ	211000h
+PageDirBase2	equ	220000h
+PageTblBase2	equ	221000h
+PageDirBase3	equ	230000h
+PageTblBase3	equ	231000h
 
 ; GDT 描述符表定义
 [SECTION .gdt]
@@ -21,12 +25,18 @@ LABEL_DESC_FLAT_RW: 	Descriptor 	0,        	 0fffffh, 	DA_DRW | DA_LIMIT_4K    ;
 ; TSS描述符	
 LABEL_DESC_TSS0:       	Descriptor 	0,		  TSSLen - 1,   DA_386TSS				;TSS0描述符
 LABEL_DESC_TSS1:	   	Descriptor 	0,		  TSSLen - 1,   DA_386TSS				;TSS1描述符
+LABEL_DESC_TSS2:	   	Descriptor 	0,		  TSSLen - 1,   DA_386TSS				;TSS2描述符
+LABEL_DESC_TSS3:	   	Descriptor 	0,		  TSSLen - 1,   DA_386TSS				;TSS3描述符
 ; 堆栈描述符	
-LABEL_DESC_STACK0:     	Descriptor 	0,    	 TopOfStack0, 	DA_DRWA+DA_32			;全局32位Stack0
-LABEL_DESC_STACK1:     	Descriptor 	0,    	 TopOfStack1, 	DA_DRWA+DA_32			;全局32位Stack1
+LABEL_DESC_STACK0:     	Descriptor 	0,    	 TopOfStack0, 	DA_DRWA + DA_32			;全局32位Stack0
+LABEL_DESC_STACK1:     	Descriptor 	0,    	 TopOfStack1, 	DA_DRWA + DA_32			;全局32位Stack1
+LABEL_DESC_STACK2:     	Descriptor 	0,    	 TopOfStack2, 	DA_DRWA + DA_32			;全局32位Stack2
+LABEL_DESC_STACK3:     	Descriptor 	0,    	 TopOfStack3, 	DA_DRWA + DA_32			;全局32位Stack3
 ; LDT描述符	
 LABEL_DESC_LDT0:	   	Descriptor 	0,		 LDT0Len - 1, 	DA_LDT					; LDT0
 LABEL_DESC_LDT1:	   	Descriptor 	0,		 LDT1Len - 1, 	DA_LDT					; LDT1
+LABEL_DESC_LDT2:	   	Descriptor 	0,		 LDT2Len - 1, 	DA_LDT					; LDT2
+LABEL_DESC_LDT3:	   	Descriptor 	0,		 LDT3Len - 1, 	DA_LDT					; LDT3
 
 GdtLen		equ	$ - LABEL_GDT	; GDT长度
 GdtPtr		dw	GdtLen - 1		; GDT界限
@@ -40,10 +50,16 @@ SelectorVideo		equ		LABEL_DESC_VIDEO	- LABEL_GDT
 SelectorFlatRW		equ		LABEL_DESC_FLAT_RW	- LABEL_GDT
 SelectorStack0		equ		LABEL_DESC_STACK0	- LABEL_GDT
 SelectorStack1		equ		LABEL_DESC_STACK1	- LABEL_GDT
+SelectorStack2		equ		LABEL_DESC_STACK2	- LABEL_GDT
+SelectorStack3		equ		LABEL_DESC_STACK3	- LABEL_GDT
 SelectorTSS0		equ		LABEL_DESC_TSS0		- LABEL_GDT
 SelectorTSS1		equ		LABEL_DESC_TSS1		- LABEL_GDT
+SelectorTSS2		equ		LABEL_DESC_TSS2		- LABEL_GDT
+SelectorTSS3		equ		LABEL_DESC_TSS3		- LABEL_GDT
 SelectorLDT0		equ		LABEL_DESC_LDT0		- LABEL_GDT
 SelectorLDT1		equ		LABEL_DESC_LDT1		- LABEL_GDT
+SelectorLDT2		equ		LABEL_DESC_LDT2		- LABEL_GDT
+SelectorLDT3		equ		LABEL_DESC_LDT3		- LABEL_GDT
 ; END of [SECTION .gdt]
 
 ; 数据段
@@ -72,6 +88,11 @@ _SavedIDTR:				dd	0	; 用于保存IDTR
 _SavedIMREG:			dd 	0	; 中断屏蔽寄存器值
 _MemChkBuf:		times	256	db 	0
 _currentTask:			dd  0
+_priorityTask:			
+	_priorityTask0		dd	32
+	_priorityTask1		dd	14
+	_priorityTask2		dd	8
+	_priorityTask3		dd 	20
 ; 保护模式下符号
 szPMMessage		equ	_szPMMessage	- $$
 szMemChkTitle		equ	_szMemChkTitle	- $$
@@ -91,7 +112,11 @@ SavedIDTR		equ	_SavedIDTR	- $$
 SavedIMREG		equ	_SavedIMREG	- $$
 MemChkBuf		equ	_MemChkBuf	- $$
 currentTask		equ	_currentTask - $$
-
+priorityTask	equ	_priorityTask - $$
+	priorityTask0	equ	_priorityTask0 - $$
+	priorityTask1	equ	_priorityTask1 - $$
+	priorityTask2	equ	_priorityTask2 - $$
+	priorityTask3	equ	_priorityTask3 - $$
 DataLen			equ	$ - LABEL_DATA
 ; END of [SECTION .data]
 
@@ -132,6 +157,24 @@ LABEL_STACK1:
 TopOfStack1	equ	$ - LABEL_STACK1 - 1
 ; END of [SECTION .gs1]
 
+; 全局堆栈段2 
+[SECTION .gs2]
+ALIGN	32
+[BITS	32]
+LABEL_STACK2:
+	times 512 db 0
+TopOfStack2	equ	$ - LABEL_STACK2 - 1
+; END of [SECTION .gs1]
+
+; 全局堆栈段1 
+[SECTION .gs3]
+ALIGN	32
+[BITS	32]
+LABEL_STACK3:
+	times 512 db 0
+TopOfStack3	equ	$ - LABEL_STACK3 - 1
+; END of [SECTION .gs3]
+
 ; TSS0
 [SECTION .tss0]
 ALIGN	32
@@ -168,7 +211,7 @@ LABEL_TSS0:
 TSSLen	equ	$ - LABEL_TSS0
 ; End of [SECTION .tss0]
 
-; TSS0
+; TSS1
 [SECTION .tss1]
 ALIGN	32
 [BITS	32]
@@ -202,6 +245,76 @@ LABEL_TSS1:
         DW  $ - LABEL_TSS1 + 2   
         DB  0ffh            
 ; End of [SECTION .tss1]
+
+; TSS2
+[SECTION .tss2]
+ALIGN	32
+[BITS	32]
+LABEL_TSS2:
+		DD  0           
+        DD  TopOfStack2				; 0 级堆栈
+        DD  SelectorStack2
+        DD  0          
+        DD  0            
+        DD  0			
+        DD  0			
+        DD  PageDirBase2			; CR3
+        DD  0        	
+        DD  200h        			; EFLAGS
+        DD  0           
+        DD  0           
+        DD  0           
+        DD  0           
+        DD  TopOfUserStack2			; ESP
+        DD  0           	
+        DD  0           	
+        DD  0      			     
+        DD  0           	
+        DD	SelectorLDT2Code		; CS
+		DD	SelectorLDT2UserStack	; SS
+        DD  0
+        DD  0
+        DD  0
+        DD  SelectorLDT2			; LDT
+        DW  0           
+        DW  $ - LABEL_TSS2 + 2   
+        DB  0ffh            
+; End of [SECTION .tss2]
+
+; TSS3
+[SECTION .tss3]
+ALIGN	32
+[BITS	32]
+LABEL_TSS3:
+		DD  0           
+        DD  TopOfStack3				; 0 级堆栈
+        DD  SelectorStack3
+        DD  0          
+        DD  0            
+        DD  0			
+        DD  0			
+        DD  PageDirBase3			; CR3
+        DD  0        	
+        DD  200h        			; EFLAGS
+        DD  0           
+        DD  0           
+        DD  0           
+        DD  0           
+        DD  TopOfUserStack3			; ESP
+        DD  0           	
+        DD  0           	
+        DD  0      			     
+        DD  0           	
+        DD	SelectorLDT3Code		; CS
+		DD	SelectorLDT3UserStack	; SS
+        DD  0
+        DD  0
+        DD  0
+        DD  SelectorLDT3			; LDT
+        DW  0           
+        DW  $ - LABEL_TSS3 + 2   
+        DB  0ffh            
+; End of [SECTION .tss3]
 
 ; 16位代码段
 [SECTION .s16]
@@ -252,14 +365,21 @@ LABEL_MEM_CHK_OK:
 	mov edx, LABEL_DESC_DATA
 	call FUNC_INITDESC
 
-	; 初始化全局堆栈段0描述符
+	; 初始化全局堆栈段描述符
 	mov ebx, LABEL_STACK0
 	mov edx, LABEL_DESC_STACK0
 	call FUNC_INITDESC
 
-	; 初始化全局堆栈段1描述符
 	mov ebx, LABEL_STACK1
 	mov edx, LABEL_DESC_STACK1
+	call FUNC_INITDESC
+
+	mov ebx, LABEL_STACK2
+	mov edx, LABEL_DESC_STACK2
+	call FUNC_INITDESC
+
+	mov ebx, LABEL_STACK3
+	mov edx, LABEL_DESC_STACK3
 	call FUNC_INITDESC
 
 	; 初始化 LDT 在 GDT 中的描述符
@@ -271,6 +391,14 @@ LABEL_MEM_CHK_OK:
 	mov edx, LABEL_DESC_LDT1
 	call FUNC_INITDESC
 
+	mov ebx, LABEL_LDT2
+	mov edx, LABEL_DESC_LDT2
+	call FUNC_INITDESC
+
+	mov ebx, LABEL_LDT3
+	mov edx, LABEL_DESC_LDT3
+	call FUNC_INITDESC
+
 	; 初始化 LDT 中的描述符
 	mov ebx, LABEL_TASK0
 	mov edx, LABEL_LDT0_DESC_CODE
@@ -278,6 +406,14 @@ LABEL_MEM_CHK_OK:
 	
 	mov ebx, LABEL_TASK1
 	mov edx, LABEL_LDT1_DESC_CODE
+	call FUNC_INITDESC
+
+	mov ebx, LABEL_TASK2
+	mov edx, LABEL_LDT2_DESC_CODE
+	call FUNC_INITDESC
+
+	mov ebx, LABEL_TASK3
+	mov edx, LABEL_LDT3_DESC_CODE
 	call FUNC_INITDESC
 	
 	mov ebx, LABEL_USER_STACK0
@@ -287,6 +423,14 @@ LABEL_MEM_CHK_OK:
 	mov ebx, LABEL_USER_STACK1
 	mov edx, LABEL_LDT1_DESC_USER_STACK
 	call FUNC_INITDESC
+
+	mov ebx, LABEL_USER_STACK2
+	mov edx, LABEL_LDT2_DESC_USER_STACK
+	call FUNC_INITDESC
+	
+	mov ebx, LABEL_USER_STACK3
+	mov edx, LABEL_LDT3_DESC_USER_STACK
+	call FUNC_INITDESC
 	
 	; 初始化 TSS 描述符
 	mov ebx, LABEL_TSS0
@@ -295,6 +439,14 @@ LABEL_MEM_CHK_OK:
 	
 	mov ebx, LABEL_TSS1
 	mov edx, LABEL_DESC_TSS1
+	call FUNC_INITDESC
+
+	mov ebx, LABEL_TSS2
+	mov edx, LABEL_DESC_TSS2
+	call FUNC_INITDESC
+
+	mov ebx, LABEL_TSS3
+	mov edx, LABEL_DESC_TSS3
 	call FUNC_INITDESC
 
 	; 为加载 GDTR 作准备
@@ -435,25 +587,44 @@ ClockHandler	equ	_ClockHandler - $$
 	mov	ax, SelectorData
 	mov	es, ax 
 	mov eax, [es:currentTask]
-	cmp eax,0
-	je	short IFEQ					; 比较Task编号
+	cmp eax, 0
+	je	short IFEQ0					; 比较Task编号
+	cmp eax, 1
+	je 	short IFEQ1
+	cmp eax, 2
+	je 	short IFEQ2
 IFNE:
-	mov eax,0
+	mov eax, 0
 	mov dword [es:currentTask], eax
 	mov	al, 20h
 	out	20h, al						; 发送 EOI
 	call io_delay
 	jmp SelectorTSS0:0
 	jmp short FINISH
-IFEQ:
-	mov eax,1
+IFEQ0:
+	mov eax, 1
 	mov dword [es:currentTask], eax
 	mov	al, 20h
 	out	20h, al						; 发送 EOI
 	call io_delay
 	jmp SelectorTSS1:0
+IFEQ1:
+	mov eax, 2
+	mov dword [es:currentTask], eax
+	mov	al, 20h
+	out	20h, al						; 发送 EOI
+	call io_delay
+	jmp SelectorTSS2:0
+IFEQ2:
+	mov eax, 3
+	mov dword [es:currentTask], eax
+	mov	al, 20h
+	out	20h, al						; 发送 EOI
+	call io_delay
+	jmp SelectorTSS3:0
 FINISH:
 	iretd
+; End Of ClockInt
 
 _UserIntHandler:					; int 80h
 UserIntHandler	equ	_UserIntHandler - $$
@@ -576,18 +747,69 @@ SetupPaging:
 	stosd
 	add	eax, 4096					; 每一页指向 4K 的空间
 	loop	.4
+
+	; 首先初始化页目录2
+	mov	ax, SelectorFlatRW
+	mov	es, ax
+	mov	edi, PageDirBase2			; 此段首地址为 PageDirBase2
+	xor	eax, eax
+	mov	eax, PageTblBase2 | PG_P  | PG_USU | PG_RWW
+	mov	ecx, [PageTableNumber]
+.5:
+	stosd
+	add	eax, 4096					; 为了简化, 所有页表在内存中是连续的.
+	loop	.5
+
+	; 再初始化所有页表
+	mov	eax, [PageTableNumber]		; 页表个数
+	mov	ebx, 1024					; 每个页表 1024 个 PTE
+	mul	ebx
+	mov	ecx, eax					; PTE个数 = 页表个数 * 1024
+	mov	edi, PageTblBase2			; 此段首地址为 PageTblBase2
+	xor	eax, eax
+	mov	eax, PG_P  | PG_USU | PG_RWW
+.6:
+	stosd
+	add	eax, 4096					; 每一页指向 4K 的空间
+	loop	.6
+
+	; 首先初始化页目录3
+	mov	ax, SelectorFlatRW
+	mov	es, ax
+	mov	edi, PageDirBase3			; 此段首地址为 PageDirBase3
+	xor	eax, eax
+	mov	eax, PageTblBase3 | PG_P  | PG_USU | PG_RWW
+	mov	ecx, [PageTableNumber]
+.7:
+	stosd
+	add	eax, 4096					; 为了简化, 所有页表在内存中是连续的.
+	loop	.7
+
+	; 再初始化所有页表
+	mov	eax, [PageTableNumber]		; 页表个数
+	mov	ebx, 1024					; 每个页表 1024 个 PTE
+	mul	ebx
+	mov	ecx, eax					; PTE个数 = 页表个数 * 1024
+	mov	edi, PageTblBase3			; 此段首地址为 PageTblBase3
+	xor	eax, eax
+	mov	eax, PG_P  | PG_USU | PG_RWW
+.8:
+	stosd
+	add	eax, 4096					; 每一页指向 4K 的空间
+	loop	.8
 	
 	mov	eax, PageDirBase0
 	mov	cr3, eax
 	mov	eax, cr0
 	or	eax, 80000000h
 	mov	cr0, eax
-	jmp	short .5
-.5:
+	jmp	short .9
+.9:
 	nop
 
 	ret
 ; 分页机制启动完毕
+
 %include "OSLib.inc"	; 常用函数定义
 
 SegCode32Len	equ	$ - LABEL_SEG_CODE32
@@ -654,7 +876,7 @@ LDT1Len		equ	$ - LABEL_LDT1
 ; LDT 选择子
 SelectorLDT1Code			equ	LABEL_LDT1_DESC_CODE	- LABEL_LDT1 + SA_TIL + SA_RPL3
 SelectorLDT1UserStack		equ	LABEL_LDT1_DESC_USER_STACK	- LABEL_LDT1 + SA_TIL + SA_RPL3
-; END of [SECTION .ldt0]
+; END of [SECTION .ldt1]
 
 ; 用户堆栈段1
 [SECTION .ls1]
@@ -692,3 +914,103 @@ LABEL_TASK1:
 	jmp LABEL_TASK1
 LEN_TASK1 	equ $ - LABEL_TASK1
 ; END of TASK1
+
+; LDT 描述符表定义
+[SECTION .ldt2]
+ALIGN	32
+LABEL_LDT2:
+LABEL_LDT2_DESC_CODE:			Descriptor 		0, 			LEN_TASK2 - 1, 	DA_C + DA_32 + DA_DPL3 		; Task2 Code, 32 位, ring 3
+LABEL_LDT2_DESC_USER_STACK:		Descriptor 		0,        TopOfUserStack2, 	DA_DRWA + DA_32 + DA_DPL3
+LDT2Len		equ	$ - LABEL_LDT2
+
+; LDT 选择子
+SelectorLDT2Code			equ	LABEL_LDT2_DESC_CODE	- LABEL_LDT2 + SA_TIL + SA_RPL3
+SelectorLDT2UserStack		equ	LABEL_LDT2_DESC_USER_STACK	- LABEL_LDT2 + SA_TIL + SA_RPL3
+; END of [SECTION .ldt2]
+
+; 用户堆栈段2
+[SECTION .ls2]
+ALIGN	32
+[BITS	32]
+LABEL_USER_STACK2:
+	times 512 db 0
+TopOfUserStack2	equ	$ - LABEL_USER_STACK2 - 1
+; END of [SECTION .ls2]
+
+; TASK2
+[SECTION .task2]
+LABEL_TASK2:
+	mov	ax, SelectorVideo
+	mov	gs, ax					; 视频段选择子
+
+	mov	edi, (80 * 14 + 0) * 2	; 屏幕第 15 行, 第 0 列
+	mov	ah, 0Ch					; 0000: 黑底    1100: 红字
+	mov	al, 'L'
+	mov	[gs:edi], ax
+
+	add edi, 2
+	mov al, 'O'
+	mov [gs:edi], ax
+
+	add edi, 2
+	mov al, 'V'
+	mov [gs:edi], ax
+
+	add edi, 2
+	mov al, 'E'
+	mov [gs:edi], ax
+
+	int 80h
+	jmp LABEL_TASK2
+LEN_TASK2 	equ $ - LABEL_TASK2
+; END of TASK2
+
+; LDT 描述符表定义
+[SECTION .ldt3]
+ALIGN	32
+LABEL_LDT3:
+LABEL_LDT3_DESC_CODE:			Descriptor 		0, 			LEN_TASK3 - 1, 	DA_C + DA_32 + DA_DPL3 		; Task1 Code, 32 位, ring 3
+LABEL_LDT3_DESC_USER_STACK:		Descriptor 		0,        TopOfUserStack3, 	DA_DRWA + DA_32 + DA_DPL3
+LDT3Len		equ	$ - LABEL_LDT3
+
+; LDT 选择子
+SelectorLDT3Code			equ	LABEL_LDT3_DESC_CODE	- LABEL_LDT3 + SA_TIL + SA_RPL3
+SelectorLDT3UserStack		equ	LABEL_LDT3_DESC_USER_STACK	- LABEL_LDT3 + SA_TIL + SA_RPL3
+; END of [SECTION .ldt3]
+
+; 用户堆栈段3
+[SECTION .ls3]
+ALIGN	32
+[BITS	32]
+LABEL_USER_STACK3:
+	times 512 db 0
+TopOfUserStack3	equ	$ - LABEL_USER_STACK3 - 1
+; END of [SECTION .ls3]
+
+; TASK3
+[SECTION .task3]
+LABEL_TASK3:
+	mov	ax, SelectorVideo
+	mov	gs, ax					; 视频段选择子
+
+	mov	edi, (80 * 14 + 0) * 2	; 屏幕第 15 行, 第 0 列
+	mov	ah, 0Bh					; 0000: 黑底    1011: 蓝字
+	mov	al, 'M'
+	mov	[gs:edi], ax
+
+	add edi, 2
+	mov al, 'R'
+	mov [gs:edi], ax
+
+	add edi, 2
+	mov al, 'S'
+	mov [gs:edi], ax
+
+	add edi, 2
+	mov al, 'U'
+	mov [gs:edi], ax
+
+	int 80h
+	jmp LABEL_TASK3
+LEN_TASK3 	equ $ - LABEL_TASK3
+; END of TASK3
